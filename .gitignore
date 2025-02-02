@@ -1,0 +1,63 @@
+# Ignore Python virtual environment folder
+.venv/
+venv/
+.env/
+env/
+
+# Ignore PyTorch model files
+*.pt
+*.pth
+*.pkl
+
+# Ignore image files (training images or generated images)
+*.jpg
+*.jpeg
+*.png
+
+# Ignore labelImg project folder
+labelImg-master/
+
+# Ignore datasets (your data, might be too large to push to Git)
+datasets/
+
+# Ignore training output directories (logs, checkpoints, temporary outputs)
+runs/
+
+# Ignore Python bytecode files and compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore IDE/editor config files (e.g., VSCode, PyCharm, etc.)
+.vscode/
+.idea/
+
+# Ignore Jupyter notebook checkpoints if you use them
+.ipynb_checkpoints/
+
+# Ignore operating system files (macOS, Windows, etc.)
+.DS_Store
+Thumbs.db
+
+# Ignore cache and temporary files from various tools
+*.log
+*.bak
+*.swp
+*.swo
+*.temp
+
+# Ignore unnecessary archive and compressed files
+*.tar
+*.gz
+*.zip
+*.7z
+
+# Ignore Git-related files and configuration (we don't need this in the image or repo)
+.git/
+# .gitignore
+
+# Ignore shell files
+*.sh
+
+# Ignore CSV files
+*.csv
