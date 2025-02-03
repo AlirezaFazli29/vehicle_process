@@ -5,7 +5,7 @@ vehicle_process/
 │   ├── utils.py
 │   ├── model_handler.py
 │   ├── my_models.py
-│   └── inferences.py
+│   └── model_inferences.py
 ├── weights/
 │   ├── ---.pt
 │   ├── ---.pt             
