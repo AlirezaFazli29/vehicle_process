@@ -14,6 +14,7 @@ from ultralytics import YOLO
 from utils import (
     process_yolo_result,
     YoloJSONRequest,
+    ModelJSONRequest,
 )
 from model_handler import YoloType
 from PIL import Image
@@ -61,7 +62,7 @@ async def root():
 
 @app.post(
         path="/file-to-base64",
-        tags=["Vehicle Process"]
+        tags=["Vehicle Process"],
 )
 async def file_to_base64(file: UploadFile):
     """
@@ -93,7 +94,7 @@ async def file_to_base64(file: UploadFile):
 
 @app.post(
         path="/find-plate-bb",
-        tags=["Vehicle Process"]
+        tags=["Vehicle Process"],
 )
 async def find_plate_bb(
     file: UploadFile = File(...),
@@ -134,7 +135,7 @@ async def find_plate_bb(
 
 @app.post(
         path="/find-plate-bb-plot",
-        tags=["Vehicle Process"]
+        tags=["Vehicle Process"],
 )
 async def find_plate_bb_plot(
     file: UploadFile = File(...),
@@ -161,7 +162,7 @@ async def find_plate_bb_plot(
 
 @app.post(
         path="/find-plate-bb-base64-input",
-        tags=["Vehicle Process"]
+        tags=["Vehicle Process"],
 )
 async def find_plate_bb_base64(
     request: YoloJSONRequest
@@ -198,5 +199,82 @@ async def find_plate_bb_base64(
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
     return JSONResponse(response)
+
+
+@app.get(
+        path="/show_model_types",
+        tags=["Model Selection"],
+)
+async def show_model_types():
+    """"""
+    yolo_plate_types = {
+        model_type.name: model_type.value for model_type in YoloType.CustomPlate
+    }
+    yolo_truck_types = {
+        model_type.name: model_type.value for model_type in YoloType.CustomTruck
+    }
+    yolo_plate_ocr_types = {
+        model_type.name: model_type.value for model_type in YoloType.CustomPlateOCR
+    }
+    return JSONResponse(
+        {
+            "Find plate bounding boxes model": yolo_plate_types,
+            "Truck type detection model": yolo_truck_types,
+            "Plate OCR model": yolo_plate_ocr_types,
+        }
+    )
+
+
+@app.post(
+    path="/select-bb-plate-model",
+    tags=["Model Selection"],
+)
+async def select_bb_plate_model(
+    model_type: YoloType.CustomPlate = Form(...),
+):
+    """
+    Endpoint to select a YOLO model for plate bounding box detection.
+
+    This function allows the user to choose a specific model for detecting plate bounding boxes.
+    The selected model is then stored in a global variable for use in future processing.
+
+    Args:
+        model_type (YoloType.CustomPlate): The model type to be selected for plate bounding box detection.
+
+    Returns:
+        JSONResponse: A JSON response confirming the model selection.
+    """
+    global my_models
+    my_models["yolo_plate"] = YOLO(model_type.value)
+    return JSONResponse(
+        {"message": f"Model {model_type.name} is selected"}
+    )
+
+
+@app.post(
+    path="/select-bb-plate-model-base64-input",
+    tags=["Model Selection"],
+)
+async def select_bb_plate_model_base64(
+    request: ModelJSONRequest,
+):
+    """
+    Endpoint to select a YOLO model for plate bounding box detection from a base64-encoded input.
+
+    This function allows the user to choose a YOLO model via a request containing base64-encoded model data.
+    The model path or type specified in the request is used to load the appropriate YOLO model.
+
+    Args:
+        request (ModelJSONRequest): The request containing the model path or type in base64 format.
+
+    Returns:
+        JSONResponse: A JSON response confirming the model selection from the base64 input.
+    """
+    global my_models
+    my_models["yolo_plate"] = YOLO(request.model_type)
+    return JSONResponse(
+        {"message": f"Model from path {request.model_type} is selected"}
+    )
+
 
 uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -72,3 +72,7 @@ class YoloJSONRequest(BaseModel):
     base64_string: str
     conf_threshold: float
     return_base64_result: bool
+
+
+class ModelJSONRequest(BaseModel):
+    model_type: str
