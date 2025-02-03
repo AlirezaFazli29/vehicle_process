@@ -12,3 +12,14 @@ from fastapi.responses import (
 from contextlib import asynccontextmanager
 from PIL import Image
 import base64
+
+
+my_models = {}
+
+@asynccontextmanager
+async def lifspan(app: FastAPI):
+    #####
+    # models 
+    #####
+    yield
+    my_models.clear()
