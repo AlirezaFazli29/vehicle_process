@@ -1,4 +1,5 @@
 from enum import Enum
+from abc import ABC, abstractmethod
 
 
 class YoloType():
@@ -37,3 +38,60 @@ class YoloType():
     class CustomPlateOCR(Enum):
         plate_ocr_best = "weights/best(ocr).pt"
         plate_ocr_last = "weights/last(ocr).pt"
+
+
+class UNetType(Enum):
+    """Enumeration for model types."""
+    Corner_last = 'weights/last_custom_u.pth'
+    Corner_best = 'weights/last_custom_u.pth'
+    Base = 'base'
+
+    
+class BaseModel(ABC):
+    """
+    Abstract base class for machine learning models.
+
+    This class defines the required interface that all model subclasses must implement.
+    It ensures that every model has methods for initialization, loading, and inference.
+    """
+    @abstractmethod
+    def __init__(self):
+        """
+        Initializes the model.
+
+        Subclasses must implement this method to define any necessary attributes,
+        such as model configuration, parameters, or loading mechanisms.
+        """
+        pass  # To be implemented in subclasses
+
+    @abstractmethod
+    def load_model(self):
+        """
+        Loads the model.
+
+        This method should be implemented by subclasses to handle loading model weights,
+        architectures, or any preprocessing steps needed before inference.
+        """
+        pass  # To be implemented in subclasses
+
+    @abstractmethod
+    def __call__(self, image):
+        """
+        Runs inference on an input image.
+
+        Args:
+            image: The input data on which inference should be performed.
+        
+        Returns:
+            The model’s output after processing the input image.
+        """
+        pass  # To be implemented in subclasses
+
+    def __str__(self):
+        """
+        Returns a string representation of the model.
+
+        This method assumes that subclasses define a `model_path` attribute.
+        If `model_path` is not defined in a subclass, this method may need to be overridden.
+        """
+        return f"Model: {self.model_path}"

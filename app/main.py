@@ -33,7 +33,7 @@ async def lifspan(app: FastAPI):
 
 
 app = FastAPI(
-    title="vehicle process",
+    title="Plate Bounding Box",
     lifespan=lifspan,
 )
 
@@ -41,8 +41,9 @@ app = FastAPI(
 @app.get(
     path="/",
     tags=[
-        "Vehicle Process",
+        "Plate Bounding Box",
         "Model Selection",
+        "Plate Rectification"
     ]
 )
 async def root():
@@ -62,7 +63,7 @@ async def root():
 
 @app.post(
         path="/file-to-base64",
-        tags=["Vehicle Process"],
+        tags=["Plate Bounding Box"],
 )
 async def file_to_base64(file: UploadFile):
     """
@@ -94,7 +95,7 @@ async def file_to_base64(file: UploadFile):
 
 @app.post(
         path="/find-plate-bb",
-        tags=["Vehicle Process"],
+        tags=["Plate Bounding Box"],
 )
 async def find_plate_bb(
     file: UploadFile = File(...),
@@ -135,7 +136,7 @@ async def find_plate_bb(
 
 @app.post(
         path="/find-plate-bb-plot",
-        tags=["Vehicle Process"],
+        tags=["Plate Bounding Box"],
 )
 async def find_plate_bb_plot(
     file: UploadFile = File(...),
@@ -162,7 +163,7 @@ async def find_plate_bb_plot(
 
 @app.post(
         path="/find-plate-bb-base64-input",
-        tags=["Vehicle Process"],
+        tags=["Plate Bounding Box"],
 )
 async def find_plate_bb_base64(
     request: YoloJSONRequest
