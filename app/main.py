@@ -18,6 +18,7 @@ from utils import (
 )
 from model_handler import YoloType
 from PIL import Image
+import numpy as np
 import base64
 import io
 import uvicorn
@@ -101,18 +102,28 @@ async def find_plate_bb(
     file: UploadFile = File(...),
     conf_threshold: float = Form(...),
     return_base64_result: bool = Form(...),
+    return_base64_cropped_plates: bool = Form(...),
 ):
     """
-    Detects license plates in the given image using a YOLO model.
+    Detects license plates in the given image using a YOLO model and returns relevant information.
 
     Args:
-        file (UploadFile): The uploaded image file for processing.
-        conf_threshold (float): Confidence threshold for plate detection.
-        return_base64_result (bool): Whether to return the processed image as base64.
+        file (UploadFile): The uploaded image file to process.
+        conf_threshold (float): Confidence threshold for plate detection. Plates 
+                                with lower confidence will be ignored.
+        return_base64_result (bool): Flag to indicate whether to return the processed 
+                                     image as a base64 string.
+        return_base64_cropped_plates (bool): Flag to indicate whether to return the 
+                                             cropped plates as base64-encoded images.
 
     Returns:
-        JSONResponse: A response containing detected plate bounding boxes,
-                      the original image dimensions, and optionally the processed image in base64.
+        JSONResponse: A response containing:
+            - `data`: Detected plate bounding boxes and related information.
+            - `origin_image_size`: The original dimensions of the uploaded image.
+            - Optionally, `base64_result_image` containing the processed image as base64 
+              if `return_base64_result` is True.
+            - Optionally, `base64_cropped_plates` containing base64-encoded cropped plate 
+              images if `return_base64_cropped_plates` is True.
     """
     image = Image.open(file.file)
     res = my_models["yolo_plate"](image, conf=conf_threshold, verbose=False)
@@ -131,6 +142,18 @@ async def find_plate_bb(
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
+    if return_base64_cropped_plates:
+        boxes = response["data"][0]["boxes"]
+        plates = [None] * len(boxes)
+        for i, box in enumerate(boxes):
+            _, x1, y1, x2, y2 = map(int, box.values())
+            plates[i] = np.array(image)[y1:y2, x1:x2, :]
+            plates[i] = Image.fromarray(plates[i])
+            buffer = io.BytesIO()
+            plates[i].save(buffer, format="PNG")
+            buffer.seek(0)
+            plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_cropped_plates"] = plates
     return JSONResponse(response)
 
 
@@ -169,20 +192,33 @@ async def find_plate_bb_base64(
     request: YoloJSONRequest
 ):
     """
-    Detects license plates from a base64-encoded image input.
+    Detects license plates from a base64-encoded image input and returns relevant information.
 
     Args:
-        request (YoloJSONRequest): A JSON request containing the base64-encoded image,
-                                   confidence threshold, and whether to return base64 output.
+        request (YoloJSONRequest): A JSON object containing the following fields:
+            - `base64_string`: The base64-encoded image string to be processed.
+            - `conf_threshold`: Confidence threshold for plate detection. Plates with 
+                                lower confidence will be ignored.
+            - `return_base64_result`: Flag indicating whether to return the processed 
+                                      image as base64.
+            - `return_base64_cropped_plates`: Flag indicating whether to return the 
+                                              cropped plates as base64-encoded images.
 
     Returns:
-        JSONResponse: A response containing detected plate bounding boxes,
-                      the original image dimensions, and optionally the processed image in base64.
+        JSONResponse: A response containing:
+            - `data`: Detected plate bounding boxes along with related information.
+            - `origin_image_size`: The original dimensions of the input image.
+            - Optionally, `base64_result_image`: The processed image in base64 format, 
+                                                 if `return_base64_result` is True.
+            - Optionally, `base64_cropped_plates`: A list of cropped plate images encoded 
+                                                   in base64 format, if `return_base64_cropped_plates` 
+                                                   is True.
     """
     image_data = base64.b64decode(request.base64_string)
     image = Image.open(io.BytesIO(image_data))
     conf_threshold = request.conf_threshold
     return_base64_result = request.return_base64_result
+    return_base64_cropped_plates = request.return_base64_cropped_plates
     res = my_models["yolo_plate"](image, conf=conf_threshold, verbose=False)
     response = process_yolo_result(res[0])
     response = {
@@ -199,6 +235,18 @@ async def find_plate_bb_base64(
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_result_image"] = base64_image
+    if return_base64_cropped_plates:
+        boxes = response["data"][0]["boxes"]
+        plates = [None] * len(boxes)
+        for i, box in enumerate(boxes):
+            _, x1, y1, x2, y2 = map(int, box.values())
+            plates[i] = np.array(image)[y1:y2, x1:x2, :]
+            plates[i] = Image.fromarray(plates[i])
+            buffer = io.BytesIO()
+            plates[i].save(buffer, format="PNG")
+            buffer.seek(0)
+            plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_cropped_plates"] = plates
     return JSONResponse(response)
 
 
