@@ -363,11 +363,15 @@ async def show_model_types():
     yolo_plate_ocr_types = {
         model_type.name: model_type.value for model_type in YoloType.CustomPlateOCR
     }
+    unet_plate_rectification = {
+        model_type.name: model_type.value for model_type in UNetType
+    }
     return JSONResponse(
         {
             "Find plate bounding boxes model": yolo_plate_types,
             "Truck type detection model": yolo_truck_types,
             "Plate OCR model": yolo_plate_ocr_types,
+            "Plate rectification model": unet_plate_rectification,
         }
     )
 
@@ -422,6 +426,60 @@ async def select_bb_plate_model_base64(
     return JSONResponse(
         {"message": f"Model from path {request.model_type} is selected"}
     )
+
+
+@app.post(
+    path="/select-plate-rectification-model",
+    tags=["Model Selection"],
+)
+async def select_plate_rectification_model(
+    model_type: UNetType = Form(...),
+):
+    """
+    Endpoint to select a UNet model for plate rectification.
+
+    This function allows the user to select a specific UNet model type
+    for plate rectification by providing a model type as form input.
+
+    Args:
+        model_type (UNetType): The selected UNet model type.
+
+    Returns:
+        JSONResponse: A JSON response confirming the model selection.
+    """
+    global my_models
+    my_models["plate_unet"] = Plate_Unet(UNetType.Corner_best, device=device)
+    return JSONResponse(
+        {"message": f"Model {model_type.name} is selected"}
+    )
+
+
+@app.post(
+    path="/select-bb-plate-model-base64-input",
+    tags=["Model Selection"],
+)
+async def select_bb_plate_model_base64(
+    request: ModelJSONRequest,
+):
+    """
+    Endpoint to select a UNet model for plate bounding box detection.
+
+    This function allows the user to choose a UNet model via a request containing 
+    model path or type in base64-encoded format.
+    The specified model is then loaded for processing.
+
+    Args:
+        request (ModelJSONRequest): The request containing the base64-encoded model path or type.
+
+    Returns:
+        JSONResponse: A JSON response confirming the model selection.
+    """
+    global my_models
+    my_models["plate_unet"] = Plate_Unet(UNetType.Corner_best, device=device)
+    return JSONResponse(
+        {"message": f"Model from path {request.model_type} is selected"}
+    )
+
 
 
 uvicorn.run(app, host="0.0.0.0", port=8080)

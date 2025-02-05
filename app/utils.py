@@ -81,8 +81,10 @@ class YoloJSONRequest(BaseModel):
     return_base64_result: bool = True
     return_base64_cropped_plates: bool = True
 
+
 class UnetJSONRequest(BaseModel):
     base64_string: str
+
 
 class ModelJSONRequest(BaseModel):
     model_type: str
