@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
-from .model_handler import (
+from model_handler import (
     BaseModel,
     UNetType
 )
 import segmentation_models_pytorch as smp
 import time
-from .utils import train_custom_unet
+from utils import train_custom_unet
 
 
 class Plate_Unet(BaseModel):

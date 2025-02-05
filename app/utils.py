@@ -4,9 +4,13 @@ from torch.cuda import (
 )
 from ultralytics.engine.results import Results
 from pydantic import BaseModel
+from PIL import Image
+import numpy as np
 import torch
 import tqdm
 import os
+import cv2
+import warnings
 
 
 def select_device():
@@ -77,6 +81,8 @@ class YoloJSONRequest(BaseModel):
     return_base64_result: bool = True
     return_base64_cropped_plates: bool = True
 
+class UnetJSONRequest(BaseModel):
+    base64_string: str
 
 class ModelJSONRequest(BaseModel):
     model_type: str
@@ -195,3 +201,85 @@ def compute_iou(preds, targets, threshold=0.5):
     union = preds_binary.sum() + targets.sum() - intersection
     iou = intersection / (union + 1e-6)  # Adding a small value to avoid division by zero
     return iou
+
+
+def rectify(
+        image:Image.Image,
+        segmentation_result:np.ndarray,
+):
+    """
+    Rectifies an image based on a given segmentation result.
+
+    Args:
+        image (Image.Image): The input image.
+        segmentation_result (np.ndarray): The segmentation mask indicating the area to rectify.
+
+    Returns:
+        np.ndarray: The rectified image.
+    """
+    image_height, image_width = np.array(image).shape[:2]
+    segmentation_result = cv2.resize(segmentation_result, (image_width, image_height))
+    segmentation_result = (segmentation_result * 255).astype(np.uint8)
+    _, binary = cv2.threshold(segmentation_result, 127, 255, cv2.THRESH_BINARY)
+    binary = binary.astype(np.uint8)
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        warnings.warn(
+            "Could not find contours for this image. Returning original image."
+        )
+        return np.array(image)
+    contour = max(contours, key=cv2.contourArea)
+    hull = cv2.convexHull(contour)
+    corners = None
+    for i in np.arange(0.01, 0.055, 0.005):
+        epsilon = i * cv2.arcLength(hull, True)
+        approx = cv2.approxPolyDP(hull, epsilon, True)
+        if len(approx) == 4:
+            corners = approx.squeeze(1)
+            break
+    if corners is None:
+        warnings.warn(
+            "Could not find corners for this image. Returning original image."
+        )
+        return np.array(image)
+    sorted_corners = {
+        "Top Left": list(
+            corners[np.sqrt(np.sum((corners - np.array([0, 0])) ** 2, axis=1)).argmin()]
+        ),
+        "Top Right": list(
+            corners[np.sqrt(np.sum((corners - np.array([image_width, 0])) ** 2, axis=1)).argmin()]
+        ),
+        "Bottom Right": list(
+            corners[np.sqrt(np.sum((corners - np.array([image_width, image_height])) ** 2, axis=1)).argmin()]
+        ),
+        "Bottom Left": list(
+            corners[np.sqrt(np.sum((corners - np.array([0, image_height])) ** 2, axis=1)).argmin()]
+        ),
+    }
+    src_points = np.array(
+        [
+            sorted_corners["Top Left"], 
+            sorted_corners["Top Right"], 
+            sorted_corners["Bottom Right"], 
+            sorted_corners["Bottom Left"],
+        ],
+        dtype = np.float32,
+    )
+    dst_points = np.array(
+        [
+            [0, 0], 
+            [image_width, 0], 
+            [image_width, image_height], 
+            [0, image_height],
+        ],
+        dtype = np.float32,
+    )
+    M = cv2.getPerspectiveTransform(
+        src_points.astype(np.float32),
+        dst_points.astype(np.float32),
+    )
+    rectified_image = cv2.warpPerspective(
+        np.array(image), M, (image_width, image_height)
+    )
+    return rectified_image
+

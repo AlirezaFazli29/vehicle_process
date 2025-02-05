@@ -12,11 +12,21 @@ from fastapi.responses import (
 from contextlib import asynccontextmanager
 from ultralytics import YOLO
 from utils import (
+    select_device,
     process_yolo_result,
+    rectify,
     YoloJSONRequest,
     ModelJSONRequest,
+    UnetJSONRequest,
 )
-from model_handler import YoloType
+from my_models import (
+    Plate_Unet,
+)
+from torchvision import transforms
+from model_handler import (
+    YoloType,
+    UNetType
+)
 from PIL import Image
 import numpy as np
 import base64
@@ -25,12 +35,27 @@ import uvicorn
 
 
 my_models = {}
+my_transforms = {}
 
 @asynccontextmanager
 async def lifspan(app: FastAPI):
+    global device
+    device = select_device()
     my_models["yolo_plate"] = YOLO(YoloType.CustomPlate.Plate_best.value)
+    my_models["plate_unet"] = Plate_Unet(UNetType.Corner_best, device=device)
+    my_transforms["unet"] = transforms.Compose(
+        [
+            transforms.Resize((256,256)),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean = [0.485, 0.456, 0.406],
+                std = [0.229, 0.224, 0.225],
+            )
+        ]
+    )
     yield
     my_models.clear()
+    my_transforms.clear()
 
 
 app = FastAPI(
@@ -43,8 +68,8 @@ app = FastAPI(
     path="/",
     tags=[
         "Plate Bounding Box",
+        "Plate Rectification",
         "Model Selection",
-        "Plate Rectification"
     ]
 )
 async def root():
@@ -64,7 +89,10 @@ async def root():
 
 @app.post(
         path="/file-to-base64",
-        tags=["Plate Bounding Box"],
+        tags=[
+            "Plate Bounding Box",
+            "Plate Rectification",
+        ]
 )
 async def file_to_base64(file: UploadFile):
     """
@@ -248,6 +276,76 @@ async def find_plate_bb_base64(
             plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_cropped_plates"] = plates
     return JSONResponse(response)
+
+
+@app.post(
+        path="/rectify-plate-plot",
+        tags=["Plate Rectification"]
+)
+async def rectify_plate_plot(
+    file: UploadFile = File(...),
+):
+    """
+    Processes an uploaded image, segments the plate using a UNet model, 
+    rectifies it, and returns the transformed image.
+
+    Args:
+        file (UploadFile): The uploaded image file for processing.
+
+    Returns:
+        StreamingResponse: A streamed response with the rectified plate image.
+    """
+    image = Image.open(file.file)
+    image_torch = my_transforms["unet"](image)
+    image_torch = image_torch.unsqueeze(0).to(device)
+    plate_segment = my_models["plate_unet"](image_torch)
+    segment_array = plate_segment[0].squeeze(0).cpu().numpy()
+    rectified_image = rectify(
+        image = image,
+        segmentation_result = segment_array,
+    )
+    result_pil = Image.fromarray(rectified_image)
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
+@app.post(
+        path="/rectify-plate-base64-input",
+        tags=["Plate Rectification"]
+)
+async def rectify_plate_base64(
+    request: UnetJSONRequest,
+):
+    """
+    Processes a base64-encoded image, segments the plate using a UNet model, 
+    rectifies it, and returns the transformed image in base64 format.
+
+    Args:
+        request (UnetJSONRequest): The request containing a base64-encoded image string.
+
+    Returns:
+        JSONResponse: A JSON response containing the base64 string of the rectified plate image.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    image_torch = my_transforms["unet"](image)
+    image_torch = image_torch.unsqueeze(0).to(device)
+    plate_segment = my_models["plate_unet"](image_torch)
+    segment_array = plate_segment[0].squeeze(0).cpu().numpy()
+    rectified_image = rectify(
+        image = image,
+        segmentation_result = segment_array,
+    )
+    result_pil = Image.fromarray(rectified_image)
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    return JSONResponse(
+        {"base64_rectified_plate": base64_image}
+    )
 
 
 @app.get(
