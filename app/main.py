@@ -589,5 +589,59 @@ async def select_plate_rectification_model_base64(
     )
 
 
+@app.post(
+    path="/select-ocr-plate-model",
+    tags=["Model Selection"],
+)
+async def select_ocr_plate_model(
+    model_type: YoloType.CustomPlateOCR = Form(...),
+):
+    """
+    Endpoint to select and load a YOLO OCR model for plate recognition.
+
+    This function allows users to specify a YOLO-based OCR model for detecting 
+    license plate bounding boxes. The selected model is stored in a global 
+    variable for use in future OCR processing requests.
+
+    Parameters:
+    - model_type (YoloType.CustomPlateOCR): The model type selected by the user.
+
+    Returns:
+    - JSONResponse: A confirmation message indicating the selected model.
+    """
+    global my_models
+    my_models["yolo_ocr"] = YOLO(model_type.value)
+    return JSONResponse(
+        {"message": f"Model {model_type.name} is selected"}
+    )
+
+
+@app.post(
+    path="/select-ocr-plate-model-base64-input",
+    tags=["Model Selection"],
+)
+async def select_ocr_plate_model_base64(
+    request: ModelJSONRequest,
+):
+    """
+    Endpoint to select and load a YOLO OCR model using base64-encoded input.
+
+    This function allows users to specify a YOLO-based OCR model for plate 
+    detection via a JSON request containing the model path or type in base64 format.
+    The specified model is loaded and stored in a global variable for future use.
+
+    Parameters:
+    - request (ModelJSONRequest): The request containing:
+        - model_type (str): The model path or identifier for selection.
+
+    Returns:
+    - JSONResponse: A confirmation message indicating the selected model.
+    """
+    global my_models
+    my_models["yolo_ocr"] = YOLO(request.model_type)
+    return JSONResponse(
+        {"message": f"Model from path {request.model_type} is selected"}
+    )
+
 
 uvicorn.run(app, host="0.0.0.0", port=8080)
