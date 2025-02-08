@@ -175,6 +175,12 @@ class YoloJSONRequest(BaseModel):
     return_base64_cropped_plates: bool = True
 
 
+class YoloJSONRequest2(BaseModel):
+    base64_string: str
+    conf_threshold: float = 0.7
+    return_base64_result: bool = True
+
+
 class UnetJSONRequest(BaseModel):
     base64_string: str
 
@@ -195,7 +201,7 @@ def train_custom_unet(
         device='cpu',
         save_parameters=True,
         save_path:str="./weights"
-    ):
+    ) -> dict:
     """
     Train a custom UNet model with specified parameters.
 
@@ -382,7 +388,7 @@ def rectify(
 def get_gmm_features(
         center:np.ndarray, 
         n_components:int=3,
-):
+) -> np.ndarray:
     """
     Compute Gaussian Mixture Model (GMM) features from center y-coordinates.
 

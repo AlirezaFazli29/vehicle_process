@@ -17,6 +17,7 @@ from utils import (
     process_yolo_result_ocr,
     rectify,
     YoloJSONRequest,
+    YoloJSONRequest2,
     ModelJSONRequest,
     UnetJSONRequest,
 )
@@ -361,7 +362,56 @@ async def ocr_plate(
     conf_threshold: float = Form(...),
     return_base64_result: bool = Form(...),
 ):
+    """
+    Endpoint to perform OCR on a license plate image.
+
+    Parameters:
+    - file (UploadFile): The uploaded image file.
+    - conf_threshold (float): Confidence threshold for YOLO OCR detection.
+    - return_base64_result (bool): If True, returns the processed image as a base64 string.
+
+    Returns:
+    - JSONResponse: A dictionary containing the extracted OCR text.
+                    If requested, includes the processed image as a base64 string.
+    """
     image = Image.open(file.file)
+    res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
+    ocr_result = process_yolo_result_ocr(res[0])
+    response = {"ocr-result": ocr_result}
+    if return_base64_result:
+        result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+        buffer = io.BytesIO()
+        result_pil.save(buffer, format="PNG")
+        buffer.seek(0)
+        base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_result_image"] = base64_image
+    return JSONResponse(response)
+
+
+@app.post(
+        path="/ocr-plate-base64-input",
+        tags=["Plate OCR"],
+)
+async def ocr_plate_base64(
+    request: YoloJSONRequest2,
+):
+    """
+    Endpoint to perform OCR on a license plate image provided as a base64 string.
+
+    Parameters:
+    - request (YoloJSONRequest2): JSON payload containing:
+        - base64_string (str): The base64-encoded image data.
+        - conf_threshold (float): Confidence threshold for YOLO OCR detection.
+        - return_base64_result (bool): If True, returns the processed image as a base64 string.
+
+    Returns:
+    - JSONResponse: A dictionary containing the extracted OCR text.
+                    If requested, includes the processed image as a base64 string.
+    """
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold = request.conf_threshold
+    return_base64_result = request.return_base64_result
     res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
     ocr_result = process_yolo_result_ocr(res[0])
     response = {"ocr-result": ocr_result}
