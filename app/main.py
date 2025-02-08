@@ -14,6 +14,7 @@ from ultralytics import YOLO
 from utils import (
     select_device,
     process_yolo_result,
+    process_yolo_result_ocr,
     rectify,
     YoloJSONRequest,
     ModelJSONRequest,
@@ -43,6 +44,7 @@ async def lifspan(app: FastAPI):
     device = select_device()
     my_models["yolo_plate"] = YOLO(YoloType.CustomPlate.Plate_best.value)
     my_models["plate_unet"] = Plate_Unet(UNetType.Corner_best, device=device)
+    my_models["yolo_ocr"] = m = YOLO(YoloType.CustomPlateOCR.plate_ocr_best.value)
     my_transforms["unet"] = transforms.Compose(
         [
             transforms.Resize((256,256)),
@@ -69,6 +71,7 @@ app = FastAPI(
     tags=[
         "Plate Bounding Box",
         "Plate Rectification",
+        "Plate OCR",
         "Model Selection",
     ]
 )
@@ -92,6 +95,7 @@ async def root():
         tags=[
             "Plate Bounding Box",
             "Plate Rectification",
+            "Plate OCR",
         ]
 )
 async def file_to_base64(file: UploadFile):
@@ -348,6 +352,59 @@ async def rectify_plate_base64(
     )
 
 
+@app.post(
+        path="/ocr-plate",
+        tags=["Plate OCR"],
+)
+async def ocr_plate(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+    return_base64_result: bool = Form(...),
+):
+    image = Image.open(file.file)
+    res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
+    ocr_result = process_yolo_result_ocr(res[0])
+    response = {"ocr-result": ocr_result}
+    if return_base64_result:
+        result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+        buffer = io.BytesIO()
+        result_pil.save(buffer, format="PNG")
+        buffer.seek(0)
+        base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64_result_image"] = base64_image
+    return JSONResponse(response)
+
+
+@app.post(
+        path="/ocr-plate-plot",
+        tags=["Plate OCR"],
+)
+async def ocr_plate_plot(
+    file: UploadFile = File(...),
+    conf_threshold: float = Form(...),
+):
+    """
+    Endpoint to perform Optical Character Recognition (OCR) on a license plate image.
+
+    This function processes an uploaded image, applies a YOLO-based OCR model,
+    and returns the annotated image with detected characters.
+
+    Args:
+        file (UploadFile): The uploaded image file for OCR processing.
+        conf_threshold (float): Confidence threshold for OCR detection.
+
+    Returns:
+        StreamingResponse: A streamed response containing the annotated image.
+    """
+    image = Image.open(file.file)
+    res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
+    result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
+    buffer = io.BytesIO()
+    result_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="image/png")
+
+
 @app.get(
         path="/show_model_types",
         tags=["Model Selection"],
@@ -455,10 +512,11 @@ async def select_plate_rectification_model(
 
 
 @app.post(
-    path="/select-bb-plate-model-base64-input",
+    path="/select-plate-rectification-base64-input",
     tags=["Model Selection"],
 )
-async def select_bb_plate_model_base64(
+
+async def select_plate_rectification_model_base64(
     request: ModelJSONRequest,
 ):
     """

@@ -11,6 +11,8 @@ import tqdm
 import os
 import cv2
 import warnings
+from sklearn.mixture import GaussianMixture
+import joblib
 
 
 def select_device():
@@ -73,7 +75,98 @@ def process_yolo_result(result: Results) -> list:
             "error": 404,
             "message": "No object detected"
         }]
-    
+
+
+def get_gmm_features(
+        center:np.ndarray, 
+        n_components:int=3,
+):
+    """
+    Compute Gaussian Mixture Model (GMM) features from center y-coordinates.
+
+    Parameters:
+    center (numpy.ndarray): A 1D array of y or x coordinates of the centers of bounding boxes.
+    n_components (int): The number of Gaussian components for the GMM. Default is 3.
+
+    Returns:
+    numpy.ndarray: A feature vector containing concatenated values of:
+        - Means of the GMM components.
+        - Standard deviations (square root of covariances) of the GMM components.
+        - Weights of the GMM components.
+    """
+    center = center.reshape(-1, 1)
+    gmm = GaussianMixture(n_components=n_components)
+    gmm.fit(center)
+    means = gmm.means_.flatten()
+    covariances = gmm.covariances_.flatten()
+    weights = gmm.weights_.flatten()
+    std_devs = np.sqrt(covariances)
+    return np.concatenate([means, std_devs, weights])
+
+
+def process_yolo_result_ocr(result: Results) -> list:
+    """
+    Process YOLO OCR results to extract and sort detected text.
+
+    Parameters:
+    result (Results): The output of the YOLO model containing detected objects.
+
+    Returns:
+    list: A structured list containing sorted OCR results. If no objects are detected,
+          returns an error message.
+    """
+    summary = result.summary()
+    if len(summary) > 0:
+        image_shape = result.orig_shape
+        labels = np.array(
+            [item["name"] for item in summary]
+        )
+        data = np.array(
+            [
+                [
+                    (item["box"]["x2"]+item["box"]["x1"])/2,
+                    (item["box"]["y2"]+item["box"]["y1"])/2,
+                ] for item in summary
+            ]
+        )
+        feature = get_gmm_features(
+            data[:,1]/image_shape[0],
+            n_components = 3,
+        )
+        svc_classifier = joblib.load("weights/svc_grid_model.pkl")
+        plate_type = svc_classifier.predict(
+            feature.reshape((1,len(feature)))
+        ).item()
+        datum =  np.column_stack([data, np.array(labels)])
+        if plate_type <= 1:
+            sorted_datum = [
+                datum[datum[:,0].astype(np.float16).argsort()]
+            ]
+        else:
+            gmm = GaussianMixture(n_components=plate_type)
+            gmm.fit(
+                datum[:,1].astype(np.float16).reshape(-1,1)
+            )
+            clusters = gmm.predict(
+                datum[:,1].astype(np.float16).reshape(-1,1)
+            )
+            clustered_datum = [
+                datum[clusters==cluster] for cluster in np.unique(clusters)
+            ]
+            sorted_datum = [
+                clustered_datum[j][clustered_datum[j][:,0].astype(np.float16).argsort()]
+                for j in gmm.means_.flatten().argsort()
+            ]
+        ocr_result = [
+            [str(item) for item in line[:, -1]] for line in sorted_datum
+        ]
+        return ocr_result
+    else: 
+        return [{
+            "error": 404,
+            "message": "No object detected"
+        }]
+
 
 class YoloJSONRequest(BaseModel):
     base64_string: str
@@ -284,4 +377,31 @@ def rectify(
         np.array(image), M, (image_width, image_height)
     )
     return rectified_image
+
+
+def get_gmm_features(
+        center:np.ndarray, 
+        n_components:int=3,
+):
+    """
+    Compute Gaussian Mixture Model (GMM) features from center y-coordinates.
+
+    Parameters:
+    center (numpy.ndarray): A 1D array of y or x coordinates of the centers of bounding boxes.
+    n_components (int): The number of Gaussian components for the GMM. Default is 3.
+
+    Returns:
+    numpy.ndarray: A feature vector containing concatenated values of:
+        - Means of the GMM components.
+        - Standard deviations (square root of covariances) of the GMM components.
+        - Weights of the GMM components.
+    """
+    center = center.reshape(-1, 1)
+    gmm = GaussianMixture(n_components=n_components)
+    gmm.fit(center)
+    means = gmm.means_.flatten()
+    covariances = gmm.covariances_.flatten()
+    weights = gmm.weights_.flatten()
+    std_devs = np.sqrt(covariances)
+    return np.concatenate([means, std_devs, weights])
 
