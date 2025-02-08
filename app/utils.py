@@ -307,7 +307,7 @@ def compute_iou(preds, targets, threshold=0.5):
 def rectify(
         image:Image.Image,
         segmentation_result:np.ndarray,
-):
+) -> np.ndarray:
     """
     Rectifies an image based on a given segmentation result.
 
