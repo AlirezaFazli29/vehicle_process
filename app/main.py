@@ -20,6 +20,7 @@ from utils import (
     YoloJSONRequest2,
     ModelJSONRequest,
     UnetJSONRequest,
+    PlatePipelineRequest,
 )
 from my_models import (
     Plate_Unet,
@@ -42,6 +43,20 @@ my_transforms = {}
 
 @asynccontextmanager
 async def lifspan(app: FastAPI):
+    """
+    Lifespan event for initializing and cleaning up machine learning models.
+
+    This function is executed when the FastAPI application starts and shuts down. 
+    It initializes deep learning models for license plate detection, segmentation, 
+    and OCR, along with necessary image transformations. Upon shutdown, it clears 
+    the models and transformations from memory.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+
+    Yields:
+        None: Allows the application to run while keeping models loaded.
+    """
     global device
     device = select_device()
     my_models["yolo_plate"] = YOLO(YoloType.CustomPlate.Plate_best.value)
@@ -126,7 +141,7 @@ async def file_to_base64(file: UploadFile):
         raise HTTPException(status_code=400, detail="Could not process the uploaded file.")
 
     return JSONResponse(
-        content={"filename": file.filename, "base64_string": base64_string}
+        content={"filename": file.filename, "base64 string": base64_string}
     )
 
 
@@ -166,7 +181,7 @@ async def find_plate_bb(
     response = process_yolo_result(res[0])
     response = {
         "data": response,
-        "origin_image_size": {
+        "origin image size": {
             "x": res[0].orig_shape[1],
             "y": res[0].orig_shape[0],
         }
@@ -177,7 +192,7 @@ async def find_plate_bb(
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_result_image"] = base64_image
+        response["base64 result image"] = base64_image
     if return_base64_cropped_plates:
         boxes = response["data"][0]["boxes"]
         plates = [None] * len(boxes)
@@ -189,7 +204,7 @@ async def find_plate_bb(
             plates[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_cropped_plates"] = plates
+        response["base64 cropped plates"] = plates
     return JSONResponse(response)
 
 
@@ -259,7 +274,7 @@ async def find_plate_bb_base64(
     response = process_yolo_result(res[0])
     response = {
         "data": response,
-        "origin_image_size": {
+        "origin image size": {
             "x": res[0].orig_shape[1],
             "y": res[0].orig_shape[0],
         }
@@ -270,7 +285,7 @@ async def find_plate_bb_base64(
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_result_image"] = base64_image
+        response["base64 result image"] = base64_image
     if return_base64_cropped_plates:
         boxes = response["data"][0]["boxes"]
         plates = [None] * len(boxes)
@@ -282,7 +297,7 @@ async def find_plate_bb_base64(
             plates[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_cropped_plates"] = plates
+        response["base64 cropped plates"] = plates
     return JSONResponse(response)
 
 
@@ -352,7 +367,7 @@ async def rectify_plate_base64(
     buffer.seek(0)
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return JSONResponse(
-        {"base64_rectified_plate": base64_image}
+        {"base64 rectified plate": base64_image}
     )
 
 
@@ -380,14 +395,14 @@ async def ocr_plate(
     image = Image.open(file.file)
     res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
     ocr_result = process_yolo_result_ocr(res[0])
-    response = {"ocr-result": ocr_result}
+    response = {"ocr result": ocr_result}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_result_image"] = base64_image
+        response["base64 result image"] = base64_image
     return JSONResponse(response)
 
 
@@ -417,14 +432,14 @@ async def ocr_plate_base64(
     return_base64_result = request.return_base64_result
     res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
     ocr_result = process_yolo_result_ocr(res[0])
-    response = {"ocr-result": ocr_result}
+    response = {"ocr result": ocr_result}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64_result_image"] = base64_image
+        response["base64 result image"] = base64_image
     return JSONResponse(response)
 
 
@@ -577,7 +592,134 @@ async def plate_pipeline(
             base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64 ocr results"] = base64_ocr_plate_results
     
-    response["ocr-result"] = {
+    response["ocr result"] = {
+        f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
+    }
+
+    return JSONResponse(response)
+
+
+@app.post(
+    path="/plate-pipeline-base64-input",
+    tags=["plate Pipeline"]
+)
+async def plate_pipeline_base64(
+    request: PlatePipelineRequest,
+):
+    """
+    Endpoint to process a base64-encoded image through the plate detection and OCR pipeline.
+
+    This function takes a base64-encoded image string, decodes it, detects license plates,
+    performs segmentation, rectification, and OCR, and returns results in JSON format.
+
+    Args:
+        request (PlatePipelineRequest): A request object containing:
+            - base64_string (str): The base64-encoded image.
+            - conf_threshold_bb (float): Confidence threshold for bounding box detection.
+            - conf_threshold_ocr (float): Confidence threshold for OCR.
+            - return_plates_locations (bool): Whether to include plate locations in the response.
+            - return_base64_cropped_plates (bool): Whether to return cropped plate images in base64.
+            - return_base64_rectified_plates (bool): Whether to return rectified plate images in base64.
+            - return_base64_ocr_plate_results (bool): Whether to return OCR results as base64 images.
+
+    Returns:
+        JSONResponse: A JSON object containing detected plate information, optional image data, and OCR results.
+    """
+
+    response = {}
+    image_data = base64.b64decode(request.base64_string)
+    image = Image.open(io.BytesIO(image_data))
+    conf_threshold_bb = request.conf_threshold_bb
+    conf_threshold_ocr = request.conf_threshold_ocr
+    return_plates_locations = request.return_plates_locations
+    return_base64_cropped_plates = request.return_base64_cropped_plates
+    return_base64_rectified_plates = request.return_base64_rectified_plates
+    return_base64_ocr_plate_results = request.return_base64_ocr_plate_results
+
+    plates_res = my_models["yolo_plate"](
+        source = image,
+        conf = conf_threshold_bb,
+        verbose = False,
+    )
+
+    plate_response = process_yolo_result(plates_res[0])
+
+    if return_plates_locations:
+        response = {
+            "bounding box data": plate_response,
+            "origin image size": {
+                "x": plates_res[0].orig_shape[1],
+                "y": plates_res[0].orig_shape[0],
+            }
+        }
+    
+    boxes = plate_response[0]["boxes"]
+    plates = [None] * len(boxes)
+    for i, box in enumerate(boxes):
+        _, x1, y1, x2, y2 = map(int, box.values())
+        plates[i] = np.array(image)[y1:y2, x1:x2, :]
+        plates[i] = Image.fromarray(plates[i])
+
+    if return_base64_cropped_plates:
+        plates_base64 = [None] * len(plates)
+        for i, plate in enumerate(plates):
+            plates_base64[i] = plate
+            buffer = io.BytesIO()
+            plates_base64[i].save(buffer, format="PNG")
+            buffer.seek(0)
+            plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64 cropped plates"] = plates_base64
+
+    torch_plates = [my_transforms["unet"](plate) for plate in plates]
+    torch_plates = torch.stack(torch_plates).to(device)
+    plates_segmentation_results = my_models["plate_unet"](torch_plates)
+    segment_arrays = [
+        segment.squeeze(0).cpu().numpy()
+        for segment in plates_segmentation_results 
+    ]
+    rectified_plates = [
+        rectify(
+            image = plates[i],
+            segmentation_result = segment_array 
+        )
+        for i, segment_array in enumerate(segment_arrays)
+    ]
+    rectified_plates = [
+        Image.fromarray(rectified_plate)
+        for rectified_plate in rectified_plates
+    ]
+
+    if return_base64_rectified_plates:
+        rectified_plates_base64 = [None] * len(rectified_plates)
+        for i, rectified_plate in enumerate(rectified_plates):
+            rectified_plates_base64[i] = rectified_plate
+            buffer = io.BytesIO()
+            rectified_plates_base64[i].save(buffer, format="PNG")
+            buffer.seek(0)
+            rectified_plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64 rectified plates"] = rectified_plates_base64
+
+    ocr_res = my_models["yolo_ocr"](
+        source = rectified_plates,
+        conf = conf_threshold_ocr,
+        verbose = False,
+    )
+    ocr_results = [
+        process_yolo_result_ocr(ocr)
+        for ocr in ocr_res
+    ]
+
+    if return_base64_ocr_plate_results:
+        base64_ocr_plate_results = [None] * len(ocr_res)
+        for i, ocr in enumerate(ocr_res):
+            base64_ocr_plate_results[i] = Image.fromarray(ocr.plot()[:, :, ::-1])
+            buffer = io.BytesIO()
+            base64_ocr_plate_results[i].save(buffer, format="PNG")
+            buffer.seek(0)
+            base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        response["base64 ocr results"] = base64_ocr_plate_results
+    
+    response["ocr result"] = {
         f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
     }
 

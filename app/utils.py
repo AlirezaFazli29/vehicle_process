@@ -168,6 +168,15 @@ def process_yolo_result_ocr(result: Results) -> list:
         }]
 
 
+class PlatePipelineRequest(BaseModel):
+    base64_string: str
+    conf_threshold_bb: float = 0.7
+    conf_threshold_ocr: float = 0.7
+    return_plates_locations: bool = False
+    return_base64_cropped_plates: bool = False
+    return_base64_rectified_plates: bool = False
+    return_base64_ocr_plate_results: bool = False
+
 class YoloJSONRequest(BaseModel):
     base64_string: str
     conf_threshold: float = 0.7
