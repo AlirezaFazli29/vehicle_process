@@ -141,7 +141,7 @@ async def file_to_base64(file: UploadFile):
         raise HTTPException(status_code=400, detail="Could not process the uploaded file.")
 
     return JSONResponse(
-        content={"filename": file.filename, "base64 string": base64_string}
+        content={"filename": file.filename, "base64_string": base64_string}
     )
 
 
@@ -181,7 +181,7 @@ async def find_plate_bb(
     response = process_yolo_result(res[0])
     response = {
         "data": response,
-        "origin image size": {
+        "origin_image_size": {
             "x": res[0].orig_shape[1],
             "y": res[0].orig_shape[0],
         }
@@ -192,7 +192,7 @@ async def find_plate_bb(
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 result image"] = base64_image
+        response["base64_result_image"] = base64_image
     if return_base64_cropped_plates:
         boxes = response["data"][0]["boxes"]
         plates = [None] * len(boxes)
@@ -204,7 +204,7 @@ async def find_plate_bb(
             plates[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 cropped plates"] = plates
+        response["base64_cropped_plates"] = plates
     return JSONResponse(response)
 
 
@@ -274,7 +274,7 @@ async def find_plate_bb_base64(
     response = process_yolo_result(res[0])
     response = {
         "data": response,
-        "origin image size": {
+        "origin_image_size": {
             "x": res[0].orig_shape[1],
             "y": res[0].orig_shape[0],
         }
@@ -285,7 +285,7 @@ async def find_plate_bb_base64(
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 result image"] = base64_image
+        response["base64_result_image"] = base64_image
     if return_base64_cropped_plates:
         boxes = response["data"][0]["boxes"]
         plates = [None] * len(boxes)
@@ -297,7 +297,7 @@ async def find_plate_bb_base64(
             plates[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 cropped plates"] = plates
+        response["base64_cropped_plates"] = plates
     return JSONResponse(response)
 
 
@@ -367,7 +367,7 @@ async def rectify_plate_base64(
     buffer.seek(0)
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
     return JSONResponse(
-        {"base64 rectified plate": base64_image}
+        {"base64_rectified_plate": base64_image}
     )
 
 
@@ -395,14 +395,14 @@ async def ocr_plate(
     image = Image.open(file.file)
     res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
     ocr_result = process_yolo_result_ocr(res[0])
-    response = {"ocr result": ocr_result}
+    response = {"ocr_result": ocr_result}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 result image"] = base64_image
+        response["base64_result_image"] = base64_image
     return JSONResponse(response)
 
 
@@ -432,14 +432,14 @@ async def ocr_plate_base64(
     return_base64_result = request.return_base64_result
     res = my_models["yolo_ocr"](image, conf=conf_threshold, verbose=False)
     ocr_result = process_yolo_result_ocr(res[0])
-    response = {"ocr result": ocr_result}
+    response = {"ocr_result": ocr_result}
     if return_base64_result:
         result_pil = Image.fromarray(res[0].plot()[:, :, ::-1])
         buffer = io.BytesIO()
         result_pil.save(buffer, format="PNG")
         buffer.seek(0)
         base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 result image"] = base64_image
+        response["base64_result_image"] = base64_image
     return JSONResponse(response)
 
 
@@ -519,8 +519,8 @@ async def plate_pipeline(
 
     if return_plates_locations:
         response = {
-            "bounding box data": plate_response,
-            "origin image size": {
+            "bounding_box_data": plate_response,
+            "origin_image_size": {
                 "x": plates_res[0].orig_shape[1],
                 "y": plates_res[0].orig_shape[0],
             }
@@ -541,7 +541,7 @@ async def plate_pipeline(
             plates_base64[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 cropped plates"] = plates_base64
+        response["base64_cropped_plates"] = plates_base64
 
     torch_plates = [my_transforms["unet"](plate) for plate in plates]
     torch_plates = torch.stack(torch_plates).to(device)
@@ -570,7 +570,7 @@ async def plate_pipeline(
             rectified_plates_base64[i].save(buffer, format="PNG")
             buffer.seek(0)
             rectified_plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 rectified plates"] = rectified_plates_base64
+        response["base64_rectified_plates"] = rectified_plates_base64
 
     ocr_res = my_models["yolo_ocr"](
         source = rectified_plates,
@@ -590,9 +590,9 @@ async def plate_pipeline(
             base64_ocr_plate_results[i].save(buffer, format="PNG")
             buffer.seek(0)
             base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 ocr results"] = base64_ocr_plate_results
+        response["base64_ocr_results"] = base64_ocr_plate_results
     
-    response["ocr result"] = {
+    response["ocr_result"] = {
         f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
     }
 
@@ -646,8 +646,8 @@ async def plate_pipeline_base64(
 
     if return_plates_locations:
         response = {
-            "bounding box data": plate_response,
-            "origin image size": {
+            "bounding_box_data": plate_response,
+            "origin_image_size": {
                 "x": plates_res[0].orig_shape[1],
                 "y": plates_res[0].orig_shape[0],
             }
@@ -668,7 +668,7 @@ async def plate_pipeline_base64(
             plates_base64[i].save(buffer, format="PNG")
             buffer.seek(0)
             plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 cropped plates"] = plates_base64
+        response["base64_cropped_plates"] = plates_base64
 
     torch_plates = [my_transforms["unet"](plate) for plate in plates]
     torch_plates = torch.stack(torch_plates).to(device)
@@ -697,7 +697,7 @@ async def plate_pipeline_base64(
             rectified_plates_base64[i].save(buffer, format="PNG")
             buffer.seek(0)
             rectified_plates_base64[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 rectified plates"] = rectified_plates_base64
+        response["base64_rectified_plates"] = rectified_plates_base64
 
     ocr_res = my_models["yolo_ocr"](
         source = rectified_plates,
@@ -717,9 +717,9 @@ async def plate_pipeline_base64(
             base64_ocr_plate_results[i].save(buffer, format="PNG")
             buffer.seek(0)
             base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
-        response["base64 ocr results"] = base64_ocr_plate_results
+        response["base64_ocr_results"] = base64_ocr_plate_results
     
-    response["ocr result"] = {
+    response["ocr_result"] = {
         f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
     }
 
@@ -746,10 +746,10 @@ async def show_model_types():
     }
     return JSONResponse(
         {
-            "Find plate bounding boxes model": yolo_plate_types,
-            "Truck type detection model": yolo_truck_types,
-            "Plate OCR model": yolo_plate_ocr_types,
-            "Plate rectification model": unet_plate_rectification,
+            "Find_plate_bounding_boxes_model": yolo_plate_types,
+            "Truck_type_detection_model": yolo_truck_types,
+            "Plate_OCR_model": yolo_plate_ocr_types,
+            "Plate_rectification_model": unet_plate_rectification,
         }
     )
 

@@ -66,7 +66,7 @@ def process_yolo_result(result: Results) -> list:
         for item in summary:
             obj_name = item['name']
             if obj_name not in grouped:
-                grouped[obj_name] = {'class': obj_name, 'count': 0, 'boxes': []}
+                grouped[obj_name] = {'category': obj_name, 'count': 0, 'boxes': []}
             grouped[obj_name]['boxes'].append({'conf': item['confidence'], **item['box']})
             grouped[obj_name]['count'] += 1
         return list(grouped.values())
