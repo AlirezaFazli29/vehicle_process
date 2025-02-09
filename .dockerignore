@@ -1,0 +1,66 @@
+# Ignore Python virtual environment
+.venv/
+
+# Ignore PyTorch model files
+# *.pt
+# *.pth
+
+# Ignore image files (like training images)
+*.jpg
+*.png
+*.jpeg
+
+# Ignore labelImg project folder
+labelImg-master/
+
+# Ignore datasets folder
+datasets/
+
+# Ignore training output directories (e.g., logs, checkpoints, temporary outputs)
+runs/
+
+# Ignore Python bytecode and compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore any text files except the required ones
+*.txt
+!requirements.txt
+
+# Ignore Docker-related files (e.g., image build cache, temporary files)
+.dockerignore
+Dockerfile
+
+# Ignore IDE/editor config files (e.g., VSCode, PyCharm, etc.)
+.vscode/
+.idea/
+
+# Ignore Jupyter notebook checkpoints (if you're using Jupyter)
+.ipynb_checkpoints/
+
+# Ignore operating system files (macOS, Windows, etc.)
+.DS_Store
+Thumbs.db
+
+# Ignore cache and temporary files from various tools
+*.log
+*.bak
+*.swp
+*.swo
+*.temp
+
+# Ignore other unnecessary files or directories you don’t want in the image
+*.gz
+*.tar
+*.zip
+
+# Ignore Git-related files
+.git/
+.gitignore
+
+#
+*.ipynb
+
+# Ignore csv file
+*.csv

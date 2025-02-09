@@ -89,7 +89,7 @@ app = FastAPI(
         "Plate Bounding Box",
         "Plate Rectification",
         "Plate OCR",
-        "plate Pipeline",
+        "Plate Pipeline",
         "Model Selection",
     ]
 )
@@ -114,7 +114,7 @@ async def root():
             "Plate Bounding Box",
             "Plate Rectification",
             "Plate OCR",
-            "plate Pipeline",
+            "Plate Pipeline",
         ]
 )
 async def file_to_base64(file: UploadFile):
@@ -475,7 +475,7 @@ async def ocr_plate_plot(
 
 @app.post(
     path="/plate-pipeline",
-    tags=["plate Pipeline"]
+    tags=["Plate Pipeline"]
 )
 async def plate_pipeline(
     file: UploadFile = File(...),
@@ -601,7 +601,7 @@ async def plate_pipeline(
 
 @app.post(
     path="/plate-pipeline-base64-input",
-    tags=["plate Pipeline"]
+    tags=["Plate Pipeline"]
 )
 async def plate_pipeline_base64(
     request: PlatePipelineRequest,
