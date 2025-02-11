@@ -592,9 +592,7 @@ async def plate_pipeline(
             base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_ocr_results"] = base64_ocr_plate_results
     
-    response["ocr_result"] = {
-        f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
-    }
+    response["ocr_result"] = ocr_results
 
     return JSONResponse(response)
 
@@ -719,9 +717,7 @@ async def plate_pipeline_base64(
             base64_ocr_plate_results[i] = base64.b64encode(buffer.getvalue()).decode('utf-8')
         response["base64_ocr_results"] = base64_ocr_plate_results
     
-    response["ocr_result"] = {
-        f"plate {i+1}": ocr for i, ocr in enumerate(ocr_results)
-    }
+    response["ocr_result"] = ocr_results
 
     return JSONResponse(response)
 
