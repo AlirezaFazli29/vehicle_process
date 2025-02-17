@@ -4,8 +4,7 @@ vehicle_process/
 │   ├── main.py             
 │   ├── utils.py
 │   ├── model_handler.py
-│   ├── my_models.py
-│   └── model_inferences.py
+│   └── my_models.py
 ├── weights/
 │   ├── ---.pt
 │   ├── ---.pt             

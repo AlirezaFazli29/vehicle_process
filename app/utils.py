@@ -162,10 +162,7 @@ def process_yolo_result_ocr(result: Results) -> list:
         ]
         return ocr_result
     else: 
-        return [{
-            "error": 404,
-            "message": "No object detected"
-        }]
+        return [[]]
 
 
 class PlatePipelineRequest(BaseModel):

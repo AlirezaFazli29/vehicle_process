@@ -61,7 +61,7 @@ async def lifspan(app: FastAPI):
     device = select_device()
     my_models["yolo_plate"] = YOLO(YoloType.CustomPlate.Plate_best.value)
     my_models["plate_unet"] = Plate_Unet(UNetType.Corner_best, device=device)
-    my_models["yolo_ocr"] = m = YOLO(YoloType.CustomPlateOCR.plate_ocr_best.value)
+    my_models["yolo_ocr"] = YOLO(YoloType.CustomPlateOCR.plate_ocr_best.value)
     my_transforms["unet"] = transforms.Compose(
         [
             transforms.Resize((256,256)),
