@@ -71,10 +71,7 @@ def process_yolo_result(result: Results) -> list:
             grouped[obj_name]['count'] += 1
         return list(grouped.values())
     else: 
-        return [{
-            "error": 404,
-            "message": "No object detected"
-        }]
+        return [[]]
 
 
 def get_gmm_features(
