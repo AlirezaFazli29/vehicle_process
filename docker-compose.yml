@@ -1,6 +1,9 @@
 services:
   setak:
     container_name: my-setak-app
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: alirezafazli29/setak:dev
     deploy:
       resources:
@@ -11,6 +14,6 @@ services:
     ports:
       - "8000:8080"
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+     - NVIDIA_VISIBLE_DEVICES=all
     restart: unless-stopped
     
